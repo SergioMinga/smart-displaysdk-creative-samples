@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <!-- set viewport with iPhone X support -->   
+    <meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
+    <title>Transparent Cover Kenzo Demo</title>
+    <script type="text/javascript" src="js/three.min.js"></script>
+    <script type="text/javascript" src="js/particle.min.js"></script>
+    <script type="text/javascript" src="mraid.js"></script>
+</head>
+<body>
+<script>
+  var CLICK_URL         = "https://www.kenzoparfums.com/fr";
+  var FPS_ANIMATION     = 30;
+  var PARTICLE_COUNT    = 50;
+
+  var now;
+  var then = Date.now();
+  var interval = 1000 / FPS_ANIMATION;
+  var delta;
+  var cancelAnimation = false;
+  var container, product, banner, closeBtn, flowers;
+  
+
+  var iOS = /(iPad|iPhone|iPod)/g.test( navigator.userAgent );
+  var $ = function( id ) { return document.getElementById( id ); };
+
+  //  WebGLRenderer, should be initialised only when the webview is attached to the activity
+   var renderer;
+  // Instantiate 3d scene and camera
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 10000 );
+  camera.position.z = 5;
+  camera.position.set( 0, 0, 250 );
+  
+  // Camera position offset
+  var cpOffset = { x : 0 , y : 0 };
+ 
+
+  window.addEventListener( 'resize', onWindowResize, false );
+  function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize( window.innerWidth + 2 , window.innerHeight + 2);
+  }
+
+  var flowerTexture, flowerMaterial, particleSystem;
+  
+  // Instantiate a texture loader
+  var loader = new THREE.TextureLoader();
+  
+  // Load texture
+  loader.load("img/flower.png", 
+              // onLoad callback
+              function ( texture ) {
+                flowerTexture = texture;
+                flowerTexture.needsUpdate = true;
+
+                // Create flower material
+                flowerMaterial = new THREE.PointsMaterial({
+                    size: 200,    
+                    map: flowerTexture,
+                    depthTest: false,
+                    transparent: true
+                 });
+
+                // Instantiate 3d particles
+                particles = new THREE.Geometry();
+
+                for(var i = 0; i < PARTICLE_COUNT; i++) {
+                  var pX = Math.random()*1000 - 500,
+                      pY = Math.random()*1500 - 500,
+                      pZ = Math.random()*1000 - 500,
+                      particle = new THREE.Vector3(pX, pY, pZ);
+                  particle.velocity = {};
+                  particle.velocity.y = (Math.random() * - 3)-2;
+                  particles.vertices.push(particle);
+                }
+
+                // Instantiate particle system with flower material
+                particleSystem = new THREE.Points(particles, flowerMaterial);
+                scene.add(particleSystem);
+    
+                setup();
+              },
+              // onProgress callback currently not supported
+              undefined,
+              // onError callback
+              function ( err ) {
+                console.error( 'Cannot load texture' );
+              }
+  );
+  
+  // Initial setup for MRAID or web container
+  function setup() {
+    if(typeof mraid != "undefined") { // Ad is displayed in MRAID container
+    if (mraid.getState() === 'loading') {
+      mraid.addEventListener('ready', function() {
+        setupMRAIDAndStartAd();
+      }); 
+    } else {
+      window.onload = function() {
+        setupMRAIDAndStartAd();
+      };
+    } 
+   } else { // Ad is displayed in Web container
+    window.onload = function() {
+      document.addEventListener( 'mousemove', function(event) {
+        cpOffset.x = event.clientX - window.innerWidth / 2;
+        cpOffset.y = event.clientY - window.innerHeight / 2;
+      }, false );
+      setupWebGLRenderer();
+      startAd();
+      document.body.style.backgroundColor = "#efefef";
+    }
+   }
+  }
+  
+  function setupMRAIDAndStartAd() {
+    // Use our own close button
+    mraid.useCustomClose(true);
+    
+    // Lock orientation in portrait mode
+    mraid.setOrientationProperties ({"allowOrientationChange":false,"forceOrientation" : "portrait"} );
+    
+    // Listen to tilt change, to update camera offset position
+    mraid.addEventListener("tiltChange", function(x,y,z) {
+        if(iOS) { // set values depending on device platform
+          cpOffset.x = 500 * x;
+          cpOffset.y = 100 * y;
+        }else{
+          cpOffset.x = -100 * x;
+        }
+      });
+      
+     // On Android,this is important to init WebGLRenderer only when the webview is attached to the activity
+     // We use viewable state true to perform this
+     if(mraid.isViewable()) {
+       setupWebGLRenderer();
+       startAd();
+     } else {
+      mraid.addEventListener("viewableChange", function(viewable) {
+        if(viewable && renderer === undefined) {
+          setupWebGLRenderer();
+          startAd();
+        }
+      });
+     }
+  }
+  
+  // Setup WebGLRenderer, when container is viewable
+  function setupWebGLRenderer() {
+    renderer = new THREE.WebGLRenderer( { alpha : true } );
+    renderer.setSize( window.innerWidth + 2, window.innerHeight + 2);
+    flowers = renderer.domElement;
+    flowers.id = "flowers";
+    // Add WebGLRenderer element to the DOM
+    document.body.appendChild(flowers);
+  }
+  
+  // Update animation depending on FPS setting
+  function updateAnimation(){
+    // Animate product logo depending on the camera position
+    product.style.left = parseInt( cpOffset.x / 30 ) + "px";
+    product.style.bottom = parseInt( 40 + cpOffset.y / 30 ) + "px";
+
+    var pCount = PARTICLE_COUNT;
+    while (pCount--) {
+      var particle = particles.vertices[pCount];
+      if (particle.y > 500) {
+        particle.y = -1000;
+        particle.velocity.y =  ( (Math.random() * -3)-2 );
+      }
+      particle.y -= particle.velocity.y;
+    }
+    particles.verticesNeedUpdate = true;
+  }
+
+  // This method is called for each frame
+  function render() {
+    if (cancelAnimation) {
+      return;
+    } else {
+      requestAnimationFrame(render);
+    }    
+
+    now = Date.now();
+    delta = now - then;
+
+    if (delta > interval) { // Respect FPS to limit device GPU resources
+      then = now - (delta % interval);
+      // Code for drawing the frame
+      
+      // Rotate the flowers
+      particleSystem.rotation.y += 0.005;
+      updateAnimation();
+
+      // Update camera position
+      camera.position.x += ( cpOffset.x - camera.position.x ) * 0.05;
+      camera.position.y += ( - cpOffset.y - camera.position.y ) * 0.05;
+      camera.lookAt(scene.position); 
+
+      // Render the scene with the new camera position
+      renderer.render(scene, camera);
+    }
+  }
+ 
+  // Start the ad, register clicks on close button and product
+  function startAd() {
+    banner = $("banner");
+    product = $("product");
+    closeBtn = $("close");
+    
+    // Make the product, clickable in the Smart AdServer transparent cover container
+    product.setAttribute("data-sas-touch-mode","1");
+    product.addEventListener("click", function() { window.open( CLICK_URL )});
+    
+    // Make the close button, clickable in the Smart AdServer transparent cover container
+    closeBtn.setAttribute("data-sas-touch-mode","1");
+    closeBtn.addEventListener("click", closeAd, false);
+    
+    // Start to render 3d animation
+    render(); 
+
+    // Animate other elements
+    window.setTimeout(function() {
+      // Fade in flowers
+      flowers.style.opacity = 1;
+      
+      window.setTimeout(function() {
+        // Display the product
+        banner.style.display = "inline";
+      },1000);
+    },100);
+  }
+  
+  // Close the Ad and clear elements
+  function closeAd() {
+    cancelAnimation = true;
+    // Clear ThreeJS scene
+    clearThree(scene);
+    // Clear DOM
+    clearDom(document.body);
+
+    if(typeof mraid != "undefined") {
+      // close interstitial for MRAID container
+      mraid.close();
+    }
+  }
+  
+  // Function to clear ThreeJS scene 
+  function clearThree(obj){
+    while(obj.children.length > 0){ 
+      clearThree(obj.children[0])
+      obj.remove(obj.children[0]);
+    }
+    if(obj.geometry) obj.geometry.dispose()
+    if(obj.material) obj.material.dispose()
+    if(obj.texture) obj.texture.dispose()
+  } 
+  
+  // Function to clear DOM 
+  function clearDom(domElt) {
+    while (domElt.firstChild) {
+      domElt.removeChild(domElt.firstChild);
+    }
+  }
+</script>
+<style>
+  body {
+    margin:0px;
+    overflow:hidden;
+  }
+  
+  #product {
+    -webkit-transition: all 0.3s linear;
+    transition: all 0.3s linear;
+    position: absolute;
+    z-index: 1;
+    bottom: 20px;
+    height: auto;
+    width: 60%;
+    margin-left: 20%;
+  }
+  
+  #banner {
+    display: none;
+  }
+  
+  #close {
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    background: url('img/close-button.png');
+    -webkit-background-size: 100%;
+    opacity: 1;
+    position: fixed;
+    width: 50px;
+    height: 50px;
+    right: 0;
+    bottom: 120px;
+  }
+  
+  #flowers {
+    opacity: 0;
+    -webkit-transition: opacity 1s linear;
+    transition: opacity 1s linear;
+  }
+  
+  .clouds {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 200px;
+  }
+  
+  .cloud1 {
+    position: absolute;
+    left: -80%;
+    bottom: 0;
+    width: 70%;
+    height: auto;
+  }
+
+  .cloud2 {
+    position: absolute;
+    left: -50%;
+    bottom: -20px;
+    width: 50%;
+    height: auto;
+  }
+  
+  .animation{
+    -webkit-animation: animationFrames linear 20s;
+    animation: animationFrames linear 20s;
+    -webkit-animation-iteration-count: infinite;
+    animation-iteration-count: infinite;
+    -webkit-transform-origin: 0;
+    transform-origin: 0;
+  }
+  
+  .animation2{
+    -webkit-animation: animationFrames linear 40s;
+    animation: animationFrames linear 40s;
+    -webkit-animation-iteration-count: infinite;
+    animation-iteration-count: infinite;
+    -webkit-transform-origin: 0;
+    transform-origin: 0;
+    -webkit-animation-delay: 1s; 
+    animation-delay: 1s;
+  }
+  
+  .reverse {
+    -webkit-animation-direction: reverse;
+    animation-direction: reverse;
+  }
+  
+  .delay1s {
+    -webkit-animation-delay: 1s;
+    animation-delay: 1s;
+  }
+  
+  .delay3s {
+    -webkit-animation-delay: 3s; 
+    animation-delay: 3s;
+  }
+  
+  .animateFromBottom {
+    -webkit-animation: animateFromBottomFrames ease-in-out 5s;
+    animation: animateFromBottomFrames ease-in-out 5s;
+    -webkit-animation-iteration-count: 1;
+    animation-iteration-count: 1;
+    -webkit-transform-origin: 0;
+    transform-origin: 0;
+  }
+
+  .animateLogo {
+    -webkit-animation: logoFrames ease-in-out 5s;
+  }
+  
+  .animateClose{
+    -webkit-animation: closeFrames ease-in-out 5s;
+    animation: closeFrames ease-in-out 5s;
+  }
+
+  @-webkit-keyframes animationFrames {
+    0% {
+      left:-70%;
+      opacity:1;
+      -webkit-transform: rotate(0deg) scaleX(1) scaleY(1);
+      transform: rotate(0deg) scaleX(1) scaleY(1);
+    }
+    100% {
+      left: 100%;
+      opacity: 1;
+      -webkit-transform: rotate(0deg) scaleX(1) scaleY(1);
+      transform: rotate(0deg) scaleX(1) scaleY(1);
+    }
+  }
+
+  @-webkit-keyframes animateFromBottomFrames {
+    0% {
+      bottom:-150px;
+      opacity:0;
+      -webkit-transform: rotate(0deg) scaleX(1) scaleY(1);
+      transform: rotate(0deg) scaleX(1) scaleY(1);
+    }
+    100% {
+      bottom:0;
+      opacity:1;
+      -webkit-transform: rotate(0deg) scaleX(1) scaleY(1);
+      transform: rotate(0deg) scaleX(1) scaleY(1);
+    }
+  }
+
+  @-webkit-keyframes logoFrames {
+    0% {
+      opacity: 0;
+    }
+    40% {
+      opacity: 1;
+    }
+    60% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  
+  @-webkit-keyframes closeFrames {
+    0% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  </style>
+
+  <div id="banner">
+    <img src="img/kenzo.png" class="animateLogo" style="opacity:0;position:absolute;z-index:1;top:50%;width:60%;margin-left:20%;height:auto;">
+
+    <div class="clouds animateFromBottom">
+      <img id="product" src="img/product.png">
+      <img src="img/cloud.png" class="cloud1 animation" style="bottom:-40px">
+      <img src="img/cloud.png" class="cloud1 animation delay3s" style="width:60%;bottom:-20px">
+      <img src="img/cloud.png" class="cloud1 reverse animation delay1s">
+      <img src="img/cloud.png" class="cloud2 animation2" style="bottom:0">
+      <img src="img/cloud.png" class="cloud2 reverse animation2">
+    </div>
+
+    <div id="close" class="animateClose"></div>
+  </div>
+
+  </body>
+</html>
