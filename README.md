@@ -4,6 +4,8 @@ In this repository you will find some creative samples that can run on our Displ
 * Transparent Cover
 * Unfold
 
+Both samples can be directly viewed in our Showcase apps, available for [iOS](https://itunes.apple.com/fr/app/smart-adserver-showcase/id1099838195?mt=8) and [Android](https://play.google.com/store/apps/details?id=com.smartadserver.android.showcase)
+
 ## Transparent Cover 
 
 <img src="../master/TransparentCover.jpeg?raw=true)" width="200"/>
