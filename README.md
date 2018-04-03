@@ -1,4 +1,4 @@
-# Smart DisplaySDK HTML5 Creative Samples
+# Smart Display SDK HTML5 Creative Samples
 
 In this repository you will find some creative samples that can run on our Display SDKs (Android and iOS):
 * Transparent Cover
