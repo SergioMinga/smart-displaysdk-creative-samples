@@ -38,7 +38,7 @@ This option can be activated on MRAID SDK Interstitial format.
 The purpose of this sample is to animate the current state of the app (unfold effect) to reveal the advertisement.
 
 Unfold should be programmed on an interstitial placement using MRAID SDK Interstitial template.
-This sample demonstrates how to use the extended MRAID screen capture Javascript API (not part of IAB) ``mraid.sasRequestScreenCapture()``, this Javascript API is asynchonous, so you will need to listen to ``sasReceiveScreenCapture`` events , ex:
+This sample demonstrates how to use the extended MRAID screen capture Javascript API (not part of IAB) ``mraid.sasRequestScreenCapture()``, this Javascript API is asynchronous, so you will need to listen to ``sasReceiveScreenCapture`` events , ex:
 ```
 mraid.addEventListener("sasReceiveScreenCapture", function(base64Image) {
         // use your sceen capture image element
